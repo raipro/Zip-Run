@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: ziprun
+  # Default to the H2 profile for a zero-setup, demo-able run.
+  # Override with: --spring.profiles.active=postgres
+  profiles:
+    active: h2
+  jpa:
+    # Disable open-session-in-view: keeps lazy loading out of the view layer and
+    # forces transactional boundaries to be explicit in the service layer.
+    open-in-view: false
+
+# Active routing strategy (T-2). Switchable at runtime via PATCH /config/routing-strategy,
+# or at startup via env var ROUTING_STRATEGY. Values: rule-based | ai (ai lands in T-3).
+routing:
+  strategy: rule-based
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,194 @@
+{
+  "info": {
+    "name": "ZipRun — AI Reassignment Engine",
+    "description": "ZipRun backend API (T-1 domain & API + T-2 routing engine).\n\nSet the `baseUrl` collection variable (default http://localhost:8080).\n\nSuggested demo flow:\n1. GET Agents, GET Orders (seed: 5 agents, 8 orders).\n2. POST /orders/{id}/suggest — captures `suggestionId` automatically.\n3. GET Suggestions (PENDING) — see the inline recommendation + AI reasoning.\n4. PATCH /suggestions/{id} ACCEPT — order reassigned, loads rebalanced.\n5. Switch routing strategy at runtime via /config/routing-strategy.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "orderId", "value": "ORD-001" },
+    { "key": "agentId", "value": "AGT-001" },
+    { "key": "suggestionId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /actuator/health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator", "health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "item": [
+        {
+          "name": "GET /agents — roster",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/agents", "host": ["{{baseUrl}}"], "path": ["agents"] }
+          }
+        },
+        {
+          "name": "PATCH /agents/{id}/status — OFFLINE (fires loop in T-4)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"OFFLINE\"\n}" },
+            "url": { "raw": "{{baseUrl}}/agents/{{agentId}}/status", "host": ["{{baseUrl}}"], "path": ["agents", "{{agentId}}", "status"] }
+          }
+        },
+        {
+          "name": "PATCH /agents/{id}/status — AVAILABLE",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"AVAILABLE\"\n}" },
+            "url": { "raw": "{{baseUrl}}/agents/{{agentId}}/status", "host": ["{{baseUrl}}"], "path": ["agents", "{{agentId}}", "status"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "POST /orders — create (pre-assigned)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Flowers — Jayanagar to Koramangala\",\n  \"assignedAgentId\": \"AGT-002\"\n}" },
+            "url": { "raw": "{{baseUrl}}/orders", "host": ["{{baseUrl}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "GET /orders — all",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/orders", "host": ["{{baseUrl}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "GET /orders?status=ASSIGNED",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/orders?status=ASSIGNED",
+              "host": ["{{baseUrl}}"], "path": ["orders"],
+              "query": [{ "key": "status", "value": "ASSIGNED" }]
+            }
+          }
+        },
+        {
+          "name": "GET /orders?status=REASSIGNMENT_PENDING",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/orders?status=REASSIGNMENT_PENDING",
+              "host": ["{{baseUrl}}"], "path": ["orders"],
+              "query": [{ "key": "status", "value": "REASSIGNMENT_PENDING" }]
+            }
+          }
+        },
+        {
+          "name": "POST /orders/{id}/suggest — run active strategy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.id) {",
+                  "  pm.collectionVariables.set('suggestionId', json.id);",
+                  "  console.log('Captured suggestionId =', json.id);",
+                  "}",
+                  "pm.test('suggestion is PENDING', () => pm.expect(json.status).to.eql('PENDING'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/orders/{{orderId}}/suggest", "host": ["{{baseUrl}}"], "path": ["orders", "{{orderId}}", "suggest"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Suggestions",
+      "item": [
+        {
+          "name": "GET /suggestions — all",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/suggestions", "host": ["{{baseUrl}}"], "path": ["suggestions"] }
+          }
+        },
+        {
+          "name": "GET /suggestions?status=PENDING",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/suggestions?status=PENDING",
+              "host": ["{{baseUrl}}"], "path": ["suggestions"],
+              "query": [{ "key": "status", "value": "PENDING" }]
+            }
+          }
+        },
+        {
+          "name": "PATCH /suggestions/{id} — ACCEPT (reassign)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ACCEPTED\"\n}" },
+            "url": { "raw": "{{baseUrl}}/suggestions/{{suggestionId}}", "host": ["{{baseUrl}}"], "path": ["suggestions", "{{suggestionId}}"] }
+          }
+        },
+        {
+          "name": "PATCH /suggestions/{id} — REJECT",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"REJECTED\"\n}" },
+            "url": { "raw": "{{baseUrl}}/suggestions/{{suggestionId}}", "host": ["{{baseUrl}}"], "path": ["suggestions", "{{suggestionId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Routing config (runtime switch)",
+      "item": [
+        {
+          "name": "GET /config/routing-strategy",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/config/routing-strategy", "host": ["{{baseUrl}}"], "path": ["config", "routing-strategy"] }
+          }
+        },
+        {
+          "name": "PATCH /config/routing-strategy — switch to rule-based",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"strategy\": \"rule-based\"\n}" },
+            "url": { "raw": "{{baseUrl}}/config/routing-strategy", "host": ["{{baseUrl}}"], "path": ["config", "routing-strategy"] }
+          }
+        },
+        {
+          "name": "PATCH /config/routing-strategy — switch to ai (after T-3)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"strategy\": \"ai\"\n}" },
+            "url": { "raw": "{{baseUrl}}/config/routing-strategy", "host": ["{{baseUrl}}"], "path": ["config", "routing-strategy"] }
+          }
+        }
+      ]
+    }
+  ]
+}
