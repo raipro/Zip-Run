@@ -1,8 +1,6 @@
 package com.ziprun.routing;
 
-import com.ziprun.agent.Agent;
 import com.ziprun.common.exception.BusinessRuleException;
-import com.ziprun.order.Order;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -17,7 +15,7 @@ class RoutingStrategyResolverTest {
         private final String name;
         StubStrategy(String name) { this.name = name; }
         public String name() { return name; }
-        public List<RoutingRecommendation> recommend(Order order, List<Agent> agents) { return List.of(); }
+        public List<RoutingRecommendation> recommend(RoutingContext context) { return List.of(); }
     }
 
     private RoutingProperties props(String strategy) {

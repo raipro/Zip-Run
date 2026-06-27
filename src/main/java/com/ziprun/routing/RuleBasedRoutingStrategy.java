@@ -1,7 +1,6 @@
 package com.ziprun.routing;
 
 import com.ziprun.agent.Agent;
-import com.ziprun.order.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -23,7 +22,8 @@ public class RuleBasedRoutingStrategy implements RoutingStrategy {
     }
 
     @Override
-    public List<RoutingRecommendation> recommend(Order order, List<Agent> availableAgents) {
+    public List<RoutingRecommendation> recommend(RoutingContext context) {
+        List<Agent> availableAgents = context.availableAgents();
         if (availableAgents.isEmpty()) {
             return List.of();
         }

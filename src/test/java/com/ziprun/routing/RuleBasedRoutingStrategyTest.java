@@ -23,8 +23,8 @@ class RuleBasedRoutingStrategyTest {
 
     @Test
     void ranksAvailableAgentsByFewestActiveOrders() {
-        List<RoutingRecommendation> recs = strategy.recommend(order(),
-                List.of(agent("AGT-A", 3), agent("AGT-B", 0), agent("AGT-C", 1)));
+        List<RoutingRecommendation> recs = strategy.recommend(RoutingContext.initial(order(),
+                List.of(agent("AGT-A", 3), agent("AGT-B", 0), agent("AGT-C", 1))));
 
         assertThat(recs).extracting(r -> r.agent().getId())
                 .containsExactly("AGT-B", "AGT-C", "AGT-A");
@@ -35,15 +35,15 @@ class RuleBasedRoutingStrategyTest {
 
     @Test
     void breaksTiesDeterministicallyById() {
-        List<RoutingRecommendation> recs = strategy.recommend(order(),
-                List.of(agent("AGT-Z", 1), agent("AGT-A", 1)));
+        List<RoutingRecommendation> recs = strategy.recommend(RoutingContext.initial(order(),
+                List.of(agent("AGT-Z", 1), agent("AGT-A", 1))));
 
         assertThat(recs).extracting(r -> r.agent().getId()).containsExactly("AGT-A", "AGT-Z");
     }
 
     @Test
     void returnsEmptyWhenNoAgentsAvailable() {
-        assertThat(strategy.recommend(order(), List.of())).isEmpty();
+        assertThat(strategy.recommend(RoutingContext.initial(order(), List.of()))).isEmpty();
     }
 
     @Test

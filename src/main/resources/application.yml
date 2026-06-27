@@ -11,9 +11,20 @@ spring:
     open-in-view: false
 
 # Active routing strategy (T-2). Switchable at runtime via PATCH /config/routing-strategy,
-# or at startup via env var ROUTING_STRATEGY. Values: rule-based | ai (ai lands in T-3).
+# or at startup via env var ROUTING_STRATEGY. Values: rule-based | ai.
 routing:
-  strategy: rule-based
+  strategy: ${ROUTING_STRATEGY:rule-based}
+
+# LLM provider config (T-3). Defaults to a local Ollama (no API key needed).
+# The AI strategy degrades to rule-based if the LLM is unavailable, so the app runs fine
+# without Ollama installed — switch to 'ai' via /config/routing-strategy once it's up.
+llm:
+  provider: ${LLM_PROVIDER:ollama}        # ollama | gemini | groq
+  api-key: ${LLM_API_KEY:}                # not needed for ollama
+  model: ${LLM_MODEL:llama3.1}
+  base-url: ${LLM_BASE_URL:http://localhost:11434/api}
+  connect-timeout-ms: 5000
+  read-timeout-ms: 20000
 
 management:
   endpoints:

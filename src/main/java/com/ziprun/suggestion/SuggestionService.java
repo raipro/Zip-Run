@@ -7,6 +7,7 @@ import com.ziprun.common.exception.BusinessRuleException;
 import com.ziprun.common.exception.ResourceNotFoundException;
 import com.ziprun.order.Order;
 import com.ziprun.order.OrderRepository;
+import com.ziprun.routing.RoutingContext;
 import com.ziprun.routing.RoutingRecommendation;
 import com.ziprun.routing.RoutingStrategy;
 import com.ziprun.routing.RoutingStrategyResolver;
@@ -47,19 +48,24 @@ public class SuggestionService {
     public SuggestionResponse suggestForOrder(String orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> ResourceNotFoundException.of("Order", orderId));
-        return SuggestionResponse.from(createSuggestion(order, TriggerReason.INITIAL));
+        return SuggestionResponse.from(createSuggestion(order, null));
     }
 
     /**
      * Run the active routing strategy for an order and persist the top recommendation as a
      * PENDING suggestion. Moves the order to REASSIGNMENT_PENDING and supersedes any
-     * existing PENDING suggestion (one active suggestion per order). Reused by the T-4 loop.
+     * existing PENDING suggestion (one active suggestion per order).
+     *
+     * <p>{@code recovery} is {@code null} for an on-demand (INITIAL) suggestion and non-null
+     * for an agent-offline re-plan (AGENT_OFFLINE) — the T-4 loop supplies the offline agent
+     * and stranded-order count so the AI strategy can reason in recovery mode.
      */
-    public ReassignmentSuggestion createSuggestion(Order order, TriggerReason triggerReason) {
+    public ReassignmentSuggestion createSuggestion(Order order, RoutingContext.Recovery recovery) {
         order.markReassignmentPending();
 
         RoutingStrategy strategy = routingResolver.active();
-        List<RoutingRecommendation> recommendations = strategy.recommend(order, availableCandidates(order));
+        RoutingContext context = new RoutingContext(order, availableCandidates(order), recovery);
+        List<RoutingRecommendation> recommendations = strategy.recommend(context);
         if (recommendations.isEmpty()) {
             throw new BusinessRuleException(
                     "No available agent to reassign order " + order.getId());
@@ -68,6 +74,7 @@ public class SuggestionService {
 
         supersedeExistingPending(order);
 
+        TriggerReason triggerReason = recovery != null ? TriggerReason.AGENT_OFFLINE : TriggerReason.INITIAL;
         ReassignmentSuggestion suggestion = new ReassignmentSuggestion(
                 order, top.agent(), top.confidence(), top.reasoning(), triggerReason, strategy.name());
         return suggestionRepository.save(suggestion);
