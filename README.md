@@ -13,8 +13,6 @@ Built with **Java 17 · Spring Boot 3.3 · Spring Data JPA · Validation · Actu
 (in-memory, zero setup). LLM via **Ollama / Gemini / Groq**.
 
 - Design decisions: [`ADR.md`](./ADR.md)
-- Scope & requirements: [`requirements.md`](./requirements.md)
-- API collection: [`postman/ZipRun.postman_collection.json`](./postman)
 - Frontend (ops UI): separate `ziprun-ui` project (React + Vite)
 
 ---
