@@ -3,6 +3,7 @@ package com.ziprun.agent;
 import com.ziprun.agent.dto.AgentResponse;
 import com.ziprun.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.util.List;
 public class AgentService {
 
     private final AgentRepository agentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<AgentResponse> list() {
@@ -31,10 +33,14 @@ public class AgentService {
         Agent agent = agentRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Agent", id));
 
+        AgentStatus previous = agent.getStatus();
         agent.changeStatus(newStatus);
 
-        // T-4 seam: when newStatus == OFFLINE, publish an AgentWentOfflineEvent here so an
-        // @Async listener re-plans the agent's orders without blocking this response.
+        // Fire the agentic loop only on the transition INTO offline. The event is handled
+        // after this transaction commits, on a separate thread, so this call returns at once.
+        if (newStatus == AgentStatus.OFFLINE && previous != AgentStatus.OFFLINE) {
+            eventPublisher.publishEvent(new AgentWentOfflineEvent(id));
+        }
 
         return AgentResponse.from(agent);
     }

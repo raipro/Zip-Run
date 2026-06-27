@@ -7,6 +7,7 @@ import com.ziprun.routing.RoutingStrategy;
 import com.ziprun.routing.RuleBasedRoutingStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
@@ -22,7 +23,11 @@ import java.util.List;
  *   <li>unparseable or malformed JSON → fallback;</li>
  *   <li>hallucinated agent id not in the live roster → fallback;</li>
  * </ul>
- * each logged at WARN with the cause. Confidence is clamped to [0,1].
+ * Confidence is clamped to [0,1]. Failures are differentiated by intent: expected LLM
+ * outages / bad output ({@link AiRoutingException}, {@code RestClientException}) log at WARN
+ * (routine), while unexpected bugs/misconfig log at ERROR with a stack trace so a broken AI
+ * path is never masked as "AI unavailable" — both still fall back, so a suggestion is never
+ * dropped.
  *
  * <p>Lives in {@code ai} and depends on {@code routing} (one direction); registered under
  * the name {@code "ai"} so the resolver can select it via config at runtime.
@@ -67,9 +72,16 @@ public class AiRoutingStrategy implements RoutingStrategy {
             log.info("AI recommended {} (confidence {}) for order {} [{}]",
                     agent.getId(), confidence, orderId, context.isRecovery() ? "re-plan" : "initial");
             return List.of(new RoutingRecommendation(agent, confidence, parsed.reasoning()));
-        } catch (Exception e) {
-            log.warn("AI routing failed for order {} ({}: {}). Falling back to rule-based.",
+        } catch (AiRoutingException | RestClientException e) {
+            // Expected: LLM down/timeout/quota, or bad/hallucinated output. Routine fallback.
+            log.warn("AI routing unavailable for order {} ({}: {}). Falling back to rule-based.",
                     orderId, e.getClass().getSimpleName(), e.getMessage());
+            return fallback(context);
+        } catch (Exception e) {
+            // Unexpected: a bug or misconfiguration (e.g. unknown provider). Still fall back so
+            // the suggestion is never dropped, but log LOUD so the defect isn't masked as "AI down".
+            log.error("Unexpected AI routing failure for order {} — investigate (still falling back)",
+                    orderId, e);
             return fallback(context);
         }
     }

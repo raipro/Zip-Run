@@ -86,6 +86,18 @@ class AiRoutingStrategyTest {
     }
 
     @Test
+    void unexpectedError_stillFallsBack_neverDropsTheSuggestion() {
+        // A bug-class exception (not an LLM/AI failure) must still yield a suggestion.
+        LlmClient llm = prompt -> { throw new IllegalStateException("Unknown LLM provider: typo"); };
+
+        List<RoutingRecommendation> recs = strategyWith(llm).recommend(context());
+
+        assertThat(recs).isNotEmpty();
+        assertThat(recs.get(0).agent().getId()).isEqualTo("AGT-002");
+        assertThat(recs.get(0).reasoning()).startsWith("[AI unavailable");
+    }
+
+    @Test
     void usesReplanPrompt_whenContextIsRecovery() {
         AtomicReference<String> captured = new AtomicReference<>();
         LlmClient llm = prompt -> {
